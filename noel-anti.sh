@@ -1,0 +1,169 @@
+#!/bin/bash
+
+##########################################
+#          NOEL-ANTI       #
+#        by: ORG NOEL/V0X_GH057     #
+##########################################
+
+ROOT="/storage/emulated/0"
+RASTROS="$ROOT/rastros"
+LOGS="$ROOT/rastros/logs"
+
+mkdir -p "$RASTROS"
+mkdir -p "$LOGS"
+
+# ==============================
+# LISTA PREMIUM DE PALAVRAS-CHAVE
+# ==============================
+KEYWORDS=(
+"cheat" "hack" "mod" "modmenu" "ffh4x" "aimbot" "aimlock" "unlock" "inject"
+"injector" "config" "lua" "recoil" "norecoil" "esp" "wallhack" "antena"
+"speed" "sens" "sensimax" "autohead" "apkmod" "painel" "gerador" "dll"
+"bypass" "anti-ban" "diamond" "script" "frod" "vip" "premium"
+)
+
+# ==============================
+# Função: barra estética
+# ==============================
+bar() {
+    echo "-------------------------------------------"
+}
+
+# ==============================
+# Função: calcular risco baseado no nome
+# ==============================
+calcular_risco() {
+    nome="$1"
+    risco="BAIXO"
+
+    if [[ "$nome" == *"ffh4x"* || "$nome" == *"aimbot"* || "$nome" == *"inject"* ]]; then
+        risco="ALTO"
+    elif [[ "$nome" == *"lua"* || "$nome" == *"config"* ]]; then
+        risco="MÉDIO"
+    fi
+
+    echo "$risco"
+}
+
+# ==============================
+# Função: análise profunda
+# ==============================
+scan_profundo() {
+    clear
+    echo "🔍 INICIANDO ANÁLISE PREMIUM DO SISTEMA..."
+    bar
+
+    FOUND=0
+    declare -a RASTRO_LISTA=()
+
+    for WORD in "${KEYWORDS[@]}"; do
+        echo "🔎 Procurando: $WORD ..."
+        
+        # arquivos comuns
+        ARQ=$(find "$ROOT" -type f -iname "*$WORD*" 2>/dev/null)
+        DIR=$(find "$ROOT" -type d -iname "*$WORD*" 2>/dev/null)
+
+        # arquivos dentro de ZIP e APK
+        ZIP=$(find "$ROOT" -type f \( -iname "*.zip" -o -iname "*.apk" \) 2>/dev/null)
+
+        # RESULTADOS NORMAIS
+        if [[ ! -z "$ARQ" ]]; then
+            FOUND=1
+            while IFS= read -r file; do
+                risco=$(calcular_risco "$file")
+                echo "🚨 [$risco] $file"
+                RASTRO_LISTA+=("$(dirname "$file")")
+
+                # copiar arquivo
+                cp "$file" "$RASTROS" 2>/dev/null
+            done <<< "$ARQ"
+        fi
+
+        if [[ ! -z "$DIR" ]]; then
+            FOUND=1
+            while IFS= read -r pasta; do
+                risco=$(calcular_risco "$pasta")
+                echo "🚨 [$risco] $pasta"
+                RASTRO_LISTA+=("$pasta")
+
+                # copiar pasta
+                cp -r "$pasta" "$RASTROS" 2>/dev/null
+            done <<< "$DIR"
+        fi
+
+        # ZIP E APK
+        for z in $ZIP; do
+            conteudo=$(unzip -l "$z" 2>/dev/null | grep -i "$WORD")
+
+            if [[ ! -z "$conteudo" ]]; then
+                FOUND=1
+                risco=$(calcular_risco "$z")
+                echo "📦 ZIP/APK Suspeito [$risco]: $z"
+                RASTRO_LISTA+=("$(dirname "$z")")
+
+                cp "$z" "$RASTROS"
+            fi
+        done
+
+        bar
+    done
+
+    echo ""
+    echo "📄 ANÁLISE GERAL"
+    bar
+
+    if [[ $FOUND -eq 0 ]]; then
+        echo "✔ Nenhum rastro encontrado."
+    else
+        echo "⚠ RASTROS ENCONTRADOS EM:"
+        echo ""
+
+        UNIQUE=($(printf "%s\n" "${RASTRO_LISTA[@]}" | sort -u))
+
+        for pasta in "${UNIQUE[@]}"; do
+            echo "📌 $pasta"
+        done
+
+        echo ""
+        echo "📁 Todos os rastros foram movidos para:"
+        echo "$RASTROS"
+    fi
+
+    # LOG
+    DATA=$(date +"%d-%m-%Y_%H-%M-%S")
+    LOGFILE="$LOGS/log-$DATA.txt"
+
+    echo "Gerando relatório..."
+    printf "%s\n" "${UNIQUE[@]}" > "$LOGFILE"
+
+    echo "📜 Log salvo em: $LOGFILE"
+}
+
+# ==============================
+# MENU
+# ==============================
+menu() {
+    clear
+    echo "🎄NOEL-ANTI🎄"
+    bar
+    echo "[1] Fazer análise completa"
+    echo "[2] Ver pastas de rastros"
+    echo "[3] Ver logs"
+    echo "[4] Atualizar ferramenta"
+    echo "[0] Sair"
+    bar
+    echo -n "Escolha: "
+    read opc
+
+    case "$opc" in
+
+        1) scan_profundo; read -p "Enter pra voltar..."; menu ;;
+        2) termux-open "$RASTROS"; menu ;;
+        3) termux-open "$LOGS"; menu ;;
+        4) git pull --rebase; echo "Atualizado!"; sleep 1; menu ;;
+        0) exit ;;
+        *) echo "Opção inválida"; sleep 1; menu ;;
+    esac
+}
+
+menu
